@@ -1,6 +1,6 @@
 'use strict';
 
-function Article (rawDataObj) {
+function Article(rawDataObj) {
   this.author = rawDataObj.author;
   this.authorUrl = rawDataObj.authorUrl;
   this.title = rawDataObj.title;
@@ -14,10 +14,10 @@ Article.all = [];
 
 // COMMENT: Why isn't this method written as an arrow function?
 // Its a prototype and will lose its contextual this.
-Article.prototype.toHtml = function() {
+Article.prototype.toHtml = function () {
   let template = Handlebars.compile($('#article-template').text());
 
-  this.daysAgo = parseInt((new Date() - new Date(this.publishedOn))/60/60/24/1000);
+  this.daysAgo = parseInt((new Date() - new Date(this.publishedOn)) / 60 / 60 / 24 / 1000);
 
   // COMMENT: What is going on in the line below? What do the question mark and colon represent? How have we seen this same logic represented previously?
   // Not sure? Check the docs!
@@ -35,7 +35,7 @@ Article.prototype.toHtml = function() {
 // COMMENT: Where is this function called? What does 'rawData' represent now? How is this different from previous labs?
 // Rather than looking for the data to use for fetchAll in a js file it is being called from local storage to simulate talking to a database.
 Article.loadAll = articleData => {
-  articleData.sort((a,b) => (new Date(b.publishedOn)) - (new Date(a.publishedOn)))
+  articleData.sort((a, b) => (new Date(b.publishedOn)) - (new Date(a.publishedOn)))
 
   articleData.forEach(articleObject => Article.all.push(new Article(articleObject)))
 }
@@ -43,24 +43,40 @@ Article.loadAll = articleData => {
 // TODO: This function will retrieve the data from either a local or remote source, and process it, then hand off control to the View.
 Article.fetchAll = () => {
   // REVIEW: What is this 'if' statement checking for? Where was the rawData set to local storage? it is set in the else statement below.
-  if (localStorage.rawData) {
+  let dataPath = '../data/hackerIpsum.json';
 
-    let articleData = JSON.parse(localStorage.rawData);
+  let articleData = JSON.parse(localStorage.rawData);
+  let jqXHR = $.ajax({
+    type: 'HEAD',
+    url: dataPath,
+
+    success: function (result) {
+      var headers = jqXHR.getAllResponseHeaders();
+      var etagArray = headers.trim().split(/[\r\n]+/);
+      let etag = etagArray.filter(x => x.includes('etag'));
+      console.log(etag);
+      let checkEtag = function (result) {
+        if (localStorage.etag !== etag) {
+          let setLocalStore = function (rawData) {
+            localStorage.rawData = JSON.stringify(rawData);
+          };
+          $.getJSON(dataPath, setLocalStore);
+          localStorage.etag = etag;
+        }
+      }
+      localStorage.etag ? checkEtag() : localStorage.etag = etag;
+    }
+  });
+  if (localStorage.rawData) {
     Article.loadAll(articleData);
     articleView.initIndexPage();
   } else {
-    //set local storage here
-    let dataPath = '../data/hackerIpsum.json';
-    
-    let setLocalStore = function(rawData){
+    let setLocalStore = function (rawData) {
       localStorage.rawData = JSON.stringify(rawData);
       Article.loadAll(rawData);
       articleView.initIndexPage();
     };
-    
+
     $.getJSON(dataPath, setLocalStore);
-
-
   }
-
 }
